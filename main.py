@@ -1,6 +1,11 @@
 import os
-import subprocess  # For calling Demucs CLI
+
+# import subprocess # No longer needed for Demucs CLI
 from spleeter.separator import Separator
+
+from demucs.api import Separator as DemucsAPISeparator
+from demucs.audio import save_audio
+import torch
 
 
 # --- Spleeter Specific Function ---
@@ -26,49 +31,58 @@ def separate_audio_spleeter(
 
 
 # --- Demucs Specific Function ---
-def separate_audio_demucs(input_audio_path, output_directory, demucs_model="htdemucs"):
+def separate_audio_demucs_library(
+    input_audio_path, output_base_dir, demucs_model_name="htdemucs"
+):
     """
-    Separates an audio file using Demucs CLI.
+    Separates an audio file using the Demucs library.
     Demucs typically separates into: drums, bass, other, vocals.
-    Other models might offer different stems (e.g., htdemucs_ft for fine-tuned).
     """
-    print(f"\n--- Using Demucs (model: {demucs_model}) ---")
+    print(f"\n--- Using Demucs library (model: {demucs_model_name}) ---")
     if not os.path.exists(input_audio_path):
         print(f"Error: Input audio file not found at {input_audio_path}")
         return
 
-    # Demucs CLI typically creates a subdirectory with the model name in the output path.
-    # We'll use the provided output_directory directly.
-    # Example: demucs -n mdx_extra_q --two-stems --out ./separated_output "my_song.mp3"
-    # For default 4 stems: demucs --out <output_dir> <input_audio_path>
-
-    # Ensure output directory exists (Demucs might not create it if it's nested)
-    if not os.path.exists(output_directory):
-        os.makedirs(output_directory)
-        print(f"Created output directory for Demucs: {output_directory}")
-
-    command = [
-        "demucs",
-        "-n",
-        demucs_model,
-        "--out",
-        output_directory,
-        input_audio_path,
-    ]
-    print(f"Executing Demucs command: {' '.join(command)}")
-
     try:
-        subprocess.run(command, check=True)
-        input_filename_without_ext = os.path.splitext(
-            os.path.basename(input_audio_path)
-        )[0]
-        print(
-            f"Demucs separation complete. Output files are in {output_directory}/{demucs_model}/{input_filename_without_ext}/"
+        # Determine device (CPU or GPU)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"Demucs will use device: {device}")
+
+        # Create a Demucs Separator instance
+        # This will download the model if not already cached
+        separator = DemucsAPISeparator(model=demucs_model_name, device=device)
+
+        print(f"Processing {input_audio_path} with Demucs model {demucs_model_name}...")
+        # The `separate_audio_file` method loads the audio, separates it, and returns tensors.
+        # It returns:
+        #   origin: Tensor of the original waveform [channels, samples]
+        #   separated_sources: Dict[str, Tensor], where keys are stem names (e.g., "vocals", "drums")
+        #                        and values are tensors of the separated stems [channels, samples].
+        origin, separated_sources = separator.separate_audio_file(input_audio_path)
+
+        # Define the output directory structure (similar to Demucs CLI)
+        # output_base_dir / model_name / input_filename_base / stem_name.wav
+        input_filename_base = os.path.splitext(os.path.basename(input_audio_path))[0]
+        output_path_for_song = os.path.join(
+            output_base_dir, demucs_model_name, input_filename_base
         )
-    except subprocess.CalledProcessError as e:
-        print(f"Error during Demucs processing: {e}")
-    except FileNotFoundError:
-        print("Error: Demucs command not found. Is it installed and in your PATH?")
+
+        if not os.path.exists(output_path_for_song):
+            os.makedirs(output_path_for_song)
+            print(f"Created output directory: {output_path_for_song}")
+
+        # Save each separated stem
+        for stem_name, stem_tensor in separated_sources.items():
+            stem_output_path = os.path.join(output_path_for_song, f"{stem_name}.wav")
+            save_audio(stem_tensor, stem_output_path, samplerate=separator.samplerate)
+            print(f"Saved {stem_name} to {stem_output_path}")
+
+        print(f"Demucs separation complete. Output files are in {output_path_for_song}")
+    except Exception as e:
+        print(f"Error during Demucs library processing: {e}")
+        import traceback
+
+        traceback.print_exc()
 
 
 if __name__ == "__main__":
@@ -93,6 +107,6 @@ if __name__ == "__main__":
     if TOOL_TO_USE.lower() == "spleeter":
         separate_audio_spleeter(INPUT_AUDIO, SPLEETER_OUTPUT_DIR, SPLEETER_MODEL)
     elif TOOL_TO_USE.lower() == "demucs":
-        separate_audio_demucs(INPUT_AUDIO, DEMUCS_OUTPUT_DIR, DEMUCS_MODEL)
+        separate_audio_demucs_library(INPUT_AUDIO, DEMUCS_OUTPUT_DIR, DEMUCS_MODEL)
     else:
         print(f"Error: Unknown tool '{TOOL_TO_USE}'. Choose 'spleeter' or 'demucs'.")
