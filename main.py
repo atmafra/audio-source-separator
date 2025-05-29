@@ -59,8 +59,11 @@ def separate_audio_demucs(input_audio_path, output_directory, demucs_model="htde
 
     try:
         subprocess.run(command, check=True)
+        input_filename_without_ext = os.path.splitext(
+            os.path.basename(input_audio_path)
+        )[0]
         print(
-            f"Demucs separation complete. Output files are in {output_directory}/{demucs_model}/<song_name>/"
+            f"Demucs separation complete. Output files are in {output_directory}/{demucs_model}/{input_filename_without_ext}/"
         )
     except subprocess.CalledProcessError as e:
         print(f"Error during Demucs processing: {e}")

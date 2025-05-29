@@ -1,0 +1,22 @@
+[project]
+name = "audio-source-separator"
+version = "0.1.0"
+description = "The project's objective is to be able take an input audio file (optimized for songs) and separate into its constituent sources or instruments, like guitar, bass, drums, vocals, violins, percussion, etc."
+authors = [
+    {name = "Alexandre Teixeira Mafra",email = "alexandre.mafra@gmail.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.11, <3.12"
+
+dependencies = [
+]
+
+[tool.poetry.dependencies]
+python = ">=3.11, <3.12"
+spleeter = ">=2.4.2"
+demucs = ">=4.0.1"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
