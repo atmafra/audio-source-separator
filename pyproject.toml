@@ -15,7 +15,7 @@ dependencies = []
 package-mode = false
 
 [tool.poetry.dependencies]
-demucs = ">=4.1.0"
+demucs = {git = "https://github.com/adefossez/demucs.git"}
 python = ">=3.11, <3.12"
 spleeter = ">=2.4.2"
 torchaudio = "2.0.1"

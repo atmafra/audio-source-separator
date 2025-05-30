@@ -255,14 +255,13 @@ files = [
 
 [[package]]
 name = "demucs"
-version = "4.0.1"
+version = "4.1.0a3"
 description = "Music source separation in the waveform domain."
 optional = false
 python-versions = ">=3.8.0"
 groups = ["main"]
-files = [
-    {file = "demucs-4.0.1.tar.gz", hash = "sha256:e45a5a788bae79767c37bbf6e69aae03862ddcca05550fb79b926346a177d713"},
-]
+files = []
+develop = false
 
 [package.dependencies]
 dora-search = "*"
@@ -272,11 +271,17 @@ lameenc = ">=1.2"
 openunmix = "*"
 pyyaml = "*"
 torch = ">=1.8.1"
-torchaudio = ">=0.8"
+torchaudio = ">=0.8,<2.2"
 tqdm = "*"
 
 [package.extras]
-dev = ["diffq (>=0.2.1)", "dora-search (>=0.1.12)", "einops", "flake8", "hydra-colorlog (>=1.1)", "hydra-core (>=1.1)", "julius (>=0.2.3)", "lameenc (>=1.2)", "museval", "mypy", "openunmix", "pyyaml", "soundfile (>=0.10.3) ; sys_platform == \"win32\"", "submitit", "torch (>=1.8.1)", "torchaudio (>=0.8)", "tqdm", "treetable"]
+dev = ["diffq (>=0.2.1)", "dora-search (>=0.1.12)", "einops", "flake8", "hydra-colorlog (>=1.1)", "hydra-core (>=1.1)", "julius (>=0.2.3)", "lameenc (>=1.2)", "museval", "mypy", "openunmix", "pyyaml", "soundfile (>=0.10.3)", "submitit", "torch (>=1.8.1)", "torchaudio (>=0.8,<2.2)", "tqdm", "treetable"]
+
+[package.source]
+type = "git"
+url = "https://github.com/adefossez/demucs.git"
+reference = "HEAD"
+resolved_reference = "b9ab48cad45976ba42b2ff17b229c071f0df9390"
 
 [[package]]
 name = "dora-search"
@@ -2270,4 +2275,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11, <3.12"
-content-hash = "598634817f02a906b2ad185b78c0a8ad17da38841fd4b0a5f5ce27dfba790d36"
+content-hash = "c22cdb060c5261c5e869e2dda9ed2d0f7907b27836dd0f6120c2fc53b8814680"
