@@ -1,4 +1,10 @@
+"""
+Audio Separation Tool using Spleeter and Demucs
+This script provides functionality to separate audio files into their constituent stems
+"""
+
 import os
+import traceback
 
 # import subprocess # No longer needed for Demucs CLI
 from spleeter.separator import Separator
@@ -6,7 +12,6 @@ from spleeter.separator import Separator
 from demucs.api import Separator as DemucsAPISeparator
 from demucs.audio import save_audio
 import torch
-
 
 # --- Spleeter Specific Function ---
 def separate_audio_spleeter(
@@ -80,7 +85,6 @@ def separate_audio_demucs_library(
         print(f"Demucs separation complete. Output files are in {output_path_for_song}")
     except Exception as e:
         print(f"Error during Demucs library processing: {e}")
-        import traceback
 
         traceback.print_exc()
 
