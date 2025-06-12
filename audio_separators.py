@@ -162,8 +162,35 @@ class DemucsAudioSeparator(AudioSeparator):
             logger.error(f"Error during Demucs library processing: {e}", exc_info=True)
 
 
-# Factory to map tool enum to its corresponding classes
-separator_factory = {
-    SeparationTool.SPLEETER: (SpleeterAudioSeparator, SpleeterConfig),
-    SeparationTool.DEMUCS: (DemucsAudioSeparator, DemucsConfig),
-}
+class AudioSeparatorFactory:
+    """
+    Factory class for creating audio separator instances based on the specified tool.
+    """
+
+    _registry = {
+        SeparationTool.SPLEETER: (SpleeterAudioSeparator, SpleeterConfig),
+        SeparationTool.DEMUCS: (DemucsAudioSeparator, DemucsConfig),
+    }
+
+    @classmethod
+    def create_separator(cls, separation_tool: SeparationTool) -> AudioSeparator:
+        """
+        Creates and returns an instance of the appropriate audio separator.
+
+        Args:
+            separation_tool: The type of separation tool to create.
+
+        Returns:
+            An instance of a class derived from AudioSeparator.
+
+        Raises:
+            ValueError: If the specified separation_tool is unsupported.
+        """
+        if separation_tool not in cls._registry:
+            err_msg = f"Unsupported separation tool: '{separation_tool}'"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+
+        SeparatorClass, SeparatorConfigClass = cls._registry[separation_tool]
+        separator_config = SeparatorConfigClass()
+        return SeparatorClass(config=separator_config)

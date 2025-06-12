@@ -3,40 +3,19 @@ Audio Separation Tool using Spleeter and Demucs
 This script provides functionality to separate audio files into their constituent stems
 """
 
-import logging
 import argparse
+import logging
+import os
+import sys
 from audio_separators import (
     AudioSeparator,
     SeparationTool,
-    separator_factory,
+    AudioSeparatorFactory,
 )
 
 
 # Get a logger instance for this module
 logger = logging.getLogger(__name__)
-
-
-def _create_separator(separation_tool: SeparationTool) -> AudioSeparator:
-    """
-    Creates and returns an instance of the appropriate audio separator.
-
-    Args:
-        separation_tool: The type of separation tool to create.
-
-    Returns:
-        An instance of a class derived from AudioSeparator.
-
-    Raises:
-        ValueError: If the specified separation_tool is unsupported.
-    """
-    if separation_tool not in separator_factory:
-        err_msg = f"Unsupported separation tool: '{separation_tool}'"
-        logger.error(err_msg)
-        raise ValueError(err_msg)
-
-    SeparatorClass, SeparatorConfigClass = separator_factory[separation_tool]
-    separator_config = SeparatorConfigClass()
-    return SeparatorClass(config=separator_config)
 
 
 def _parse_command_line_args() -> argparse.Namespace:
@@ -80,7 +59,7 @@ def _parse_command_line_args() -> argparse.Namespace:
     return args
 
 
-def main():
+def main() -> int:
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -89,16 +68,17 @@ def main():
     args = _parse_command_line_args()
 
     try:
-        separator: AudioSeparator = _create_separator(args.tool)
+        separator: AudioSeparator = AudioSeparatorFactory.create_separator(args.tool)
         separator.separate(
             input_audio_path=args.input_audio_file,
             output_audio_folder=args.output_folder,
         )
+        return os.EX_OK
 
     except ValueError as e:
         logger.critical(f"Terminating due to error: {e}")
-        return
+        return os.EX_SOFTWARE
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
