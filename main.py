@@ -16,19 +16,27 @@ from audio_separators import (
 logger = logging.getLogger(__name__)
 
 
-def _create_and_run_separator(
-    separation_tool: SeparationTool, input_audio_file: str, output_folder: str
-):
-    """Creates the appropriate separator instance and runs the separation process."""
-    logger.info(f"Input audio file: {input_audio_file}")
+def _create_separator(separation_tool: SeparationTool) -> AudioSeparator:
+    """
+    Creates and returns an instance of the appropriate audio separator.
+
+    Args:
+        separation_tool: The type of separation tool to create.
+
+    Returns:
+        An instance of a class derived from AudioSeparator.
+
+    Raises:
+        ValueError: If the specified separation_tool is unsupported.
+    """
     if separation_tool not in separator_factory:
-        logger.error(f"Unsupported separation tool '{separation_tool}'.")
-        return
+        err_msg = f"Unsupported separation tool: '{separation_tool}'"
+        logger.error(err_msg)
+        raise ValueError(err_msg)
 
     SeparatorClass, SeparatorConfigClass = separator_factory[separation_tool]
     separator_config = SeparatorConfigClass()
-    separator: AudioSeparator = SeparatorClass(config=separator_config)
-    separator.separate(input_audio_file, output_folder)
+    return SeparatorClass(config=separator_config)
 
 
 def _parse_command_line_args() -> argparse.Namespace:
@@ -80,11 +88,16 @@ def main():
 
     args = _parse_command_line_args()
 
-    _create_and_run_separator(
-        separation_tool=args.tool,
-        input_audio_file=args.input_audio_file,
-        output_folder=args.output_folder,
-    )
+    try:
+        separator = _create_separator(args.tool)
+        separator.separate(
+            input_audio_path=args.input_audio_file,
+            output_audio_folder=args.output_folder,
+        )
+
+    except ValueError as e:
+        logger.critical(f"Terminating due to error: {e}")
+        return
 
 
 if __name__ == "__main__":
