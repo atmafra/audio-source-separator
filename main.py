@@ -169,17 +169,11 @@ class SeparationTool(StrEnum):
 logger = logging.getLogger(__name__)
 
 
-def main():
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
-
-    input_audio_file = "sample_audio/tijucos-no-dia-que-de.mp3"
+def _create_and_run_separator(
+    separation_tool: SeparationTool, input_audio_file: str, output_folder: str
+):
+    """Creates the appropriate separator instance and runs the separation process."""
     logger.info(f"Input audio file: {input_audio_file}")
-    separation_tool: SeparationTool = SeparationTool.DEMUCS
-    default_output = f"output_stems/{separation_tool}"
-
     separator_factory = {
         SeparationTool.SPLEETER: (SpleeterAudioSeparator, SpleeterConfig),
         SeparationTool.DEMUCS: (DemucsAudioSeparator, DemucsConfig),
@@ -192,7 +186,20 @@ def main():
     SeparatorClass, ConfigClass = separator_factory[separation_tool]
     specific_config = ConfigClass()
     separator_instance: AudioSeparator = SeparatorClass(config=specific_config)
-    separator_instance.separate(input_audio_file, default_output)
+    separator_instance.separate(input_audio_file, output_folder)
+
+
+def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
+    separation_tool = SeparationTool.DEMUCS
+    input_audio_file = "sample_audio/tijucos-no-dia-que-de.mp3"
+    default_output_folder = f"output_stems/{separation_tool}"
+
+    _create_and_run_separator(separation_tool, input_audio_file, default_output_folder)
 
 
 if __name__ == "__main__":
