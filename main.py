@@ -25,10 +25,10 @@ def _create_and_run_separator(
         logger.error(f"Unsupported separation tool '{separation_tool}'.")
         return
 
-    SeparatorClass, ConfigClass = separator_factory[separation_tool]
-    specific_config = ConfigClass()
-    separator_instance: AudioSeparator = SeparatorClass(config=specific_config)
-    separator_instance.separate(input_audio_file, output_folder)
+    SeparatorClass, SeparatorConfigClass = separator_factory[separation_tool]
+    separator_config = SeparatorConfigClass()
+    separator: AudioSeparator = SeparatorClass(config=separator_config)
+    separator.separate(input_audio_file, output_folder)
 
 
 def _parse_command_line_args() -> argparse.Namespace:
