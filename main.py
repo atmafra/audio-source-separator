@@ -6,8 +6,8 @@ This script provides functionality to separate audio files into their constituen
 import os
 import traceback
 
-from spleeter.separator import Separator as SpleeterLibSeparator
-from demucs.api import Separator as DemucsAPISeparator
+from spleeter.separator import Separator as SpleeterSeparator
+from demucs.api import Separator as DemucsSeparator
 from demucs.audio import save_audio
 import torch
 from enum import StrEnum
@@ -61,7 +61,7 @@ class DemucsConfig(AudioSeparatorConfig):
 
 
 # --- Spleeter Specific Implementation ---
-class SpleeterSeparator(AudioSeparator):
+class SpleeterAudioSeparator(AudioSeparator):
     """
     Audio separator using Spleeter.
     """
@@ -82,14 +82,14 @@ class SpleeterSeparator(AudioSeparator):
             os.makedirs(output_destination)
             print(f"Created output directory: {output_destination}")
 
-        spleeter_instance = SpleeterLibSeparator(self.config.model_name)
+        spleeter_instance = SpleeterSeparator(self.config.model_name)
         print(f"Processing {input_audio_path} with model {self.config.model_name}...")
         spleeter_instance.separate_to_file(input_audio_path, output_destination)
         print(f"Separation complete. Output files are in {output_destination}")
 
 
 # --- Demucs Specific Implementation ---
-class DemucsSeparator(AudioSeparator):
+class DemucsAudioSeparator(AudioSeparator):
     """
     Audio separator using the Demucs library.
     """
@@ -111,9 +111,8 @@ class DemucsSeparator(AudioSeparator):
             device = "cuda" if torch.cuda.is_available() else "cpu"
             print(f"Demucs will use device: {device}")
 
-            # Create a Demucs Separator instance
             # This will download the model if not already cached
-            demucs_instance = DemucsAPISeparator(
+            demucs_instance = DemucsSeparator(
                 model=self.config.model_name, device=device
             )
 
@@ -129,10 +128,8 @@ class DemucsSeparator(AudioSeparator):
             )
 
             # Define the output directory structure (similar to Demucs CLI)
-            # output_base_dir / model_name / input_filename_base / stem_name.wav
-            input_filename_base = os.path.splitext(os.path.basename(input_audio_path))[
-                0
-            ]
+            input_audio_path_basename = os.path.basename(input_audio_path)
+            input_filename_base = os.path.splitext(input_audio_path_basename)[0]
             output_path_for_song = os.path.join(
                 output_destination, self.config.model_name, input_filename_base
             )
@@ -172,34 +169,26 @@ def main():
     # Choose your tool: Tool.SPLEETER or Tool.DEMUCS
     tool_to_use = Tool.DEMUCS
 
-    # Spleeter settings
-    spleeter_default_model = "spleeter:5stems"
-    spleeter_default_output = "output_stems/spleeter"
-
-    # Demucs settings
-    demucs_default_model = "htdemucs"
-    # htdemucs is a good default. Others: mdx_extra, htdemucs_ft
     demucs_default_output = "output_stems/demucs"
+    spleeter_default_output = "output_stems/spleeter"
 
     # --- End Configuration ---
 
-    separator_instance: AudioSeparator  # Type hint for the separator instance
+    separator_instance: AudioSeparator
 
     if tool_to_use == Tool.SPLEETER:
-        spleeter_config = SpleeterConfig(
-            model_name=spleeter_default_model,  # Or let Pydantic use its default
-        )
-        separator_instance = SpleeterSeparator(config=spleeter_config)
+        spleeter_config = SpleeterConfig()
+        separator_instance = SpleeterAudioSeparator(config=spleeter_config)
         separator_instance.separate(input_audio_file, spleeter_default_output)
+
     elif tool_to_use == Tool.DEMUCS:
-        demucs_config = DemucsConfig(
-            model_name=demucs_default_model,  # Or let Pydantic use its default
-        )
-        separator_instance = DemucsSeparator(config=demucs_config)
+        demucs_config = DemucsConfig()
+        separator_instance = DemucsAudioSeparator(config=demucs_config)
         separator_instance.separate(input_audio_file, demucs_default_output)
+
     else:
         print(f"Error: Unknown tool '{tool_to_use}'. Choose 'spleeter' or 'demucs'.")
-        return  # Exit if the tool is unknown
+        return
 
 
 if __name__ == "__main__":
