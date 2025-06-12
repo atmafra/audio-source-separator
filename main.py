@@ -89,7 +89,7 @@ def main():
     args = _parse_command_line_args()
 
     try:
-        separator = _create_separator(args.tool)
+        separator: AudioSeparator = _create_separator(args.tool)
         separator.separate(
             input_audio_path=args.input_audio_file,
             output_audio_folder=args.output_folder,
