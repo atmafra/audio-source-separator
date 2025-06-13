@@ -7,7 +7,7 @@ import argparse
 import logging
 import os
 import sys
-from audio_separators import (
+from audio_source_separator.audio_separators import (
     AudioSeparator,
     SeparationTool,
     AudioSeparatorFactory,
