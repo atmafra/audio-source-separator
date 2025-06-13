@@ -67,7 +67,7 @@ class AudioSeparator(ABC):
         return True
 
     @abstractmethod
-    def separate(self, input_audio_path: str, output_audio_folder: str):
+    def separate(self, input_audio_path: str, output_audio_folder: str) -> None:
         """
         Performs the audio separation.
         Subclasses must implement this method, interpreting output_audio_folder appropriately.
@@ -82,7 +82,7 @@ class SpleeterAudioSeparator(AudioSeparator):
     def __init__(self, config: SpleeterConfig):
         super().__init__(config)
 
-    def separate(self, input_audio_path: str, output_audio_folder: str):
+    def separate(self, input_audio_path: str, output_audio_folder: str) -> None:
         """Separates an audio file using Spleeter."""
         logger.info(f"--- Using Spleeter (model: {self.config.model_name}) ---")
         if not self._check_input_file(input_audio_path):
@@ -111,7 +111,7 @@ class DemucsAudioSeparator(AudioSeparator):
     def __init__(self, config: DemucsConfig):
         super().__init__(config)
 
-    def separate(self, input_audio_path: str, output_audio_folder: str):
+    def separate(self, input_audio_path: str, output_audio_folder: str) -> None:
         """
         Separates an audio file using the Demucs library.
         Demucs typically separates into: drums, bass, other, vocals.
