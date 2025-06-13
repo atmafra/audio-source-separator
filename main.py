@@ -43,7 +43,7 @@ def _parse_command_line_args() -> argparse.Namespace:
         "--input",
         dest="input_audio_file",
         type=str,
-        default="sample_audio/tijucos-no-dia-que-de.mp3",
+        default=None,
         help="Path to the input audio file (default: sample_audio/tijucos-no-dia-que-de.mp3).",
     )
     parser.add_argument(
@@ -51,8 +51,8 @@ def _parse_command_line_args() -> argparse.Namespace:
         "--output",
         dest="output_folder",
         type=str,
-        default=f"output_stems/{default_tool}",
-        help="Path to the output folder. If not provided, defaults to 'output_stems/[tool_name]'.",
+        default=None,
+        help="Path to the output folder. If not provided, defaults to 'output_stems/<selected_tool_name>'.",
     )
 
     args = parser.parse_args()
@@ -67,11 +67,15 @@ def main() -> int:
 
     args = _parse_command_line_args()
 
+    output_folder = args.output_folder
+    if output_folder is None:
+        output_folder = f"output_stems/{args.tool.value}"
+
     try:
         separator: AudioSeparator = AudioSeparatorFactory.create_separator(args.tool)
         separator.separate(
             input_audio_path=args.input_audio_file,
-            output_audio_folder=args.output_folder,
+            output_audio_folder=output_folder,
         )
         return os.EX_OK
 
