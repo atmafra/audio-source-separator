@@ -1,0 +1,47 @@
+spleeter:
+  - name: "spleeter:2stems"
+    supported_stems:
+      - "vocals"
+      - "accompaniment"
+  - name: "spleeter:4stems"
+    supported_stems:
+      - "vocals"
+      - "drums"
+      - "bass"
+      - "other"
+  - name: "spleeter:5stems"
+    supported_stems:
+      - "vocals"
+      - "drums"
+      - "bass"
+      - "piano"
+      - "other"
+
+demucs:
+  - name: "htdemucs_ft"
+    supported_stems:
+      - "vocals"
+      - "drums"
+      - "bass"
+      - "other"
+  - name: "htdemucs"
+    supported_stems:
+      - "vocals"
+      - "drums"
+      - "bass"
+      - "other"
+  # Add more Demucs models as needed, e.g.:
+  # - name: "mdx_extra"
+  #   supported_stems:
+  #     - "vocals"
+  #     - "drums"
+  #     - "bass"
+  #     - "other"
+  # - name: "hdemucs_mmi"
+  #   supported_stems:
+  #     - "vocals"
+  #     - "drums"
+  #     - "bass"
+  #     - "other"
+  #     - "guitar"
+  #     - "piano"

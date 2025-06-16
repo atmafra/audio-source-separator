@@ -12,6 +12,10 @@ from audio_source_separator.audio_separators import (
     SeparationTool,
     AudioSeparatorFactory,
 )
+from audio_source_separator.instrument_classifier import ( # New import
+    PlaceholderInstrumentClassifier,
+    InstrumentClassifier,
+)
 
 
 # Get a logger instance for this module
@@ -54,6 +58,11 @@ def _parse_command_line_args() -> argparse.Namespace:
         default=None,
         help="Path to the output folder. If not provided, defaults to 'output_stems/<selected_tool_name>'.",
     )
+    parser.add_argument(
+        "--detect-instruments",
+        action="store_true",
+        help="Enable instrument detection to attempt to select a more appropriate model (primarily for Spleeter).",
+    )
 
     args = parser.parse_args()
     return args
@@ -71,8 +80,25 @@ def main() -> int:
     if output_folder is None:
         output_folder = f"output_stems/{args.tool.value}"
 
+    detected_instruments_list: list[str] | None = None
+    if args.detect_instruments:
+        if not args.input_audio_file:
+            logger.warning(
+                "Instrument detection requires an input audio file. Please provide one with -i."
+            )
+        else:
+            try:
+                # In a real application, you might have a factory or configuration for choosing the classifier
+                instrument_classifier: InstrumentClassifier = PlaceholderInstrumentClassifier()
+                detected_instruments_list = instrument_classifier.classify_instruments(
+                    args.input_audio_file
+                )
+            except Exception as e:
+                logger.error(f"Instrument classification failed: {e}", exc_info=True)
+                logger.warning("Proceeding without instrument-based model selection.")
+
     try:
-        separator: AudioSeparator = AudioSeparatorFactory.create_separator(args.tool)
+        separator: AudioSeparator = AudioSeparatorFactory.create_separator(args.tool, detected_instruments_list)
         separator.separate(
             input_audio_path=args.input_audio_file,
             output_audio_folder=output_folder,
