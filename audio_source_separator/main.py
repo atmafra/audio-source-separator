@@ -12,7 +12,8 @@ from audio_source_separator.audio_separators import (
     SeparationTool,
     AudioSeparatorFactory,
 )
-from audio_source_separator.instrument_classifier import ( # New import
+from audio_source_separator.common_types import InstrumentStem
+from audio_source_separator.instrument_classifier import (
     PlaceholderInstrumentClassifier,
     InstrumentClassifier,
 )
@@ -80,7 +81,7 @@ def main() -> int:
     if output_folder is None:
         output_folder = f"output_stems/{args.tool.value}"
 
-    detected_instruments_list: list[str] | None = None
+    detected_instruments_list: list[InstrumentStem] = []
     if args.detect_instruments:
         if not args.input_audio_file:
             logger.warning(
@@ -89,7 +90,9 @@ def main() -> int:
         else:
             try:
                 # In a real application, you might have a factory or configuration for choosing the classifier
-                instrument_classifier: InstrumentClassifier = PlaceholderInstrumentClassifier()
+                instrument_classifier: InstrumentClassifier = (
+                    PlaceholderInstrumentClassifier()
+                )
                 detected_instruments_list = instrument_classifier.classify_instruments(
                     args.input_audio_file
                 )
@@ -98,7 +101,9 @@ def main() -> int:
                 logger.warning("Proceeding without instrument-based model selection.")
 
     try:
-        separator: AudioSeparator = AudioSeparatorFactory.create_separator(args.tool, detected_instruments_list)
+        separator: AudioSeparator = AudioSeparatorFactory.create_separator(
+            args.tool, detected_instruments_list
+        )
         separator.separate(
             input_audio_path=args.input_audio_file,
             output_audio_folder=output_folder,

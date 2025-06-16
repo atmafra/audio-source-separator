@@ -14,6 +14,7 @@ import yaml
 import torch
 from demucs.api import Separator as DemucsSeparator
 from demucs.audio import save_audio
+from audio_source_separator.common_types import InstrumentStem
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +88,7 @@ class SpleeterAudioSeparator(AudioSeparator):
     def separate(self, input_audio_path: str, output_audio_folder: str) -> None:
         """Separates an audio file using Spleeter."""
         logger.info(f"--- Using Spleeter (model: {self.config.model_name}) ---")
+
         if not self._check_input_file(input_audio_path):
             return
 
@@ -100,6 +102,7 @@ class SpleeterAudioSeparator(AudioSeparator):
         logger.info(
             f"Processing {input_audio_path} with Spleeter model {self.config.model_name}..."
         )
+
         spleeter_instance.separate_to_file(input_audio_path, output_audio_folder)
         logger.info(
             f"Spleeter separation complete. Output files are in {output_audio_folder}"
@@ -168,7 +171,8 @@ class ModelDefinition(BaseModel):
     """Defines a separation model and its supported stems."""
 
     name: str
-    supported_stems: Set[str]
+    description: str
+    supported_stems: Set[InstrumentStem]
     # Optional: priority for tie-breaking, or other metadata
 
 
@@ -205,15 +209,26 @@ def _load_models_config(
                             and "name" in model_entry
                             and "supported_stems" in model_entry
                         ):
-                            # Ensure supported_stems is a set
-                            stems = (
-                                set(model_entry["supported_stems"])
-                                if isinstance(model_entry["supported_stems"], list)
-                                else set()
-                            )
+                            parsed_stems: Set[InstrumentStem] = set()
+                            if isinstance(model_entry["supported_stems"], list):
+                                for stem_str in model_entry["supported_stems"]:
+                                    try:
+                                        # Convert string from YAML to InstrumentStem enum member
+                                        parsed_stems.add(
+                                            InstrumentStem(str(stem_str).lower())
+                                        )
+                                    except ValueError:
+                                        logger.warning(
+                                            f"Unknown stem '{stem_str}' in model '{model_entry['name']}' "
+                                            f"for tool {tool_name} in {config_path}. Skipping this stem."
+                                        )
                             model_defs.append(
                                 ModelDefinition(
-                                    name=model_entry["name"], supported_stems=stems
+                                    name=model_entry.get("name", "Unnamed Model"),
+                                    description=model_entry.get(
+                                        "description", "No description provided."
+                                    ),
+                                    supported_stems=parsed_stems,
                                 )
                             )
                         else:
@@ -221,6 +236,7 @@ def _load_models_config(
                                 f"Skipping invalid model entry for tool {tool_name} in {config_path}: {model_entry}"
                             )
                 available_models[tool_enum] = model_defs
+
             except ValueError:
                 logger.warning(
                     f"Unknown separation tool '{tool_name}' in {config_path}. Skipping."
@@ -228,8 +244,10 @@ def _load_models_config(
 
     except yaml.YAMLError as e:
         logger.error(f"Error parsing YAML file {config_path}: {e}", exc_info=True)
+
     except IOError as e:
         logger.error(f"Error reading file {config_path}: {e}", exc_info=True)
+
     return available_models
 
 
@@ -238,6 +256,150 @@ MODELS_CONFIG_PATH = Path(__file__).parent / "models_config.yaml"
 AVAILABLE_MODELS: Dict[SeparationTool, List[ModelDefinition]] = _load_models_config(
     MODELS_CONFIG_PATH
 )
+
+
+class ModelSelector:
+    """
+    Handles the logic for selecting the most appropriate separation model
+    based on detected instruments and available model definitions.
+    """
+
+    @staticmethod
+    def _calculate_jaccard_similarity(
+        set1: Set[InstrumentStem], set2: Set[InstrumentStem]
+    ) -> float:
+        """Calculates Jaccard similarity between two sets of strings."""
+        if not set1 and not set2:  # Both empty
+            return 1.0
+
+        if not set1 or not set2:
+            return 0.0
+
+        intersection_count = len(set1.intersection(set2))
+        union_count = len(set1.union(set2))
+
+        return intersection_count / union_count if union_count > 0 else 0.0
+
+    def _find_best_match_by_jaccard(
+        self,
+        tool_models: List[ModelDefinition],
+        detected_instruments_set: Set[InstrumentStem],
+        default_model_name: str,
+    ) -> str:
+        """
+        Selects the best model name from the available tool_models based on detected instruments.
+        using Jaccard similarity and coverage heuristics. This is the core matching logic.
+
+        Args:
+            tool_models: A list of ModelDefinition objects for the current separation tool.
+            detected_instruments_set: A set of detected instrument names.
+            default_model_name: The default model name to return if no better match is found.
+
+        Returns:
+            The name of the selected model.
+        """
+        best_model_candidate: ModelDefinition | None = None
+        highest_similarity_score: float = -1.0
+        best_coverage_of_detected: int = -1
+
+        for model_def in tool_models:
+            similarity = self._calculate_jaccard_similarity(
+                detected_instruments_set, model_def.supported_stems
+            )
+            coverage_of_detected = len(
+                detected_instruments_set.intersection(model_def.supported_stems)
+            )
+
+            logger.debug(
+                f"Evaluating model: {model_def.name}, Stems: {[s.value for s in model_def.supported_stems]}, "
+                f"Jaccard: {similarity:.4f}, Detected Coverage: {coverage_of_detected}"
+            )
+
+            if similarity > highest_similarity_score:
+                highest_similarity_score = similarity
+                best_model_candidate = model_def
+                best_coverage_of_detected = coverage_of_detected
+
+            elif similarity == highest_similarity_score:
+                if coverage_of_detected > best_coverage_of_detected:
+                    best_model_candidate = model_def
+                    best_coverage_of_detected = coverage_of_detected
+
+                elif (
+                    coverage_of_detected == best_coverage_of_detected
+                    and best_model_candidate
+                    and len(model_def.supported_stems)
+                    > len(best_model_candidate.supported_stems)
+                ):
+                    best_model_candidate = model_def
+
+        if best_model_candidate and highest_similarity_score > 0.0:
+            logger.info(
+                f"Selected model based on instruments: {best_model_candidate.name} "
+                f"(Jaccard Similarity: {highest_similarity_score:.4f}, Coverage: {best_coverage_of_detected})"
+            )
+            return best_model_candidate.name
+
+        else:
+            logger.info(
+                f"No sufficiently similar model found or no overlap with detected instruments. "
+                f"Using default model: {default_model_name}"
+            )
+            return default_model_name
+
+    def get_model_name_for_tool(
+        self,
+        separation_tool: SeparationTool,
+        detected_instruments_list: List[InstrumentStem],
+        all_available_models: Dict[SeparationTool, List[ModelDefinition]],
+        default_model_name: str,
+    ) -> str:
+        """
+        Determines the appropriate model name for a given separation tool based on detected instruments.
+        This method orchestrates the selection by performing preliminary checks and then
+        delegating to the core Jaccard-based matching logic.
+
+        Args:
+            separation_tool: The separation tool being used.
+            detected_instruments_list: A list of detected InstrumentStem objects.
+                                      Can be empty if no instruments were detected or if detection was not run.
+            all_available_models: A dictionary containing all configured model definitions.
+            default_model_name: The default model name to use if no better match is found.
+
+        Returns:
+            The selected model name.
+        """
+        if not detected_instruments_list:
+            logger.info(
+                "No instruments provided for model selection (list is empty). Using default model: %s",
+                default_model_name,
+            )
+            return default_model_name
+
+        if (
+            separation_tool not in all_available_models
+            or not all_available_models[separation_tool]
+        ):
+            logger.info(
+                "No model definitions found for tool %s in configuration. Using default model: %s",
+                separation_tool.value,
+                default_model_name,
+            )
+            return default_model_name
+
+        tool_specific_models = all_available_models[separation_tool]
+        detected_stems_set = set(detected_instruments_list)
+
+        logger.info(
+            "Attempting to select best model for %s based on detected instruments: %s",
+            separation_tool.value,
+            {stem.value for stem in detected_stems_set},
+        )
+        return self._find_best_match_by_jaccard(
+            tool_models=tool_specific_models,
+            detected_instruments_set=detected_stems_set,
+            default_model_name=default_model_name,
+        )
 
 
 class AudioSeparatorFactory:
@@ -250,24 +412,11 @@ class AudioSeparatorFactory:
         SeparationTool.DEMUCS: (DemucsAudioSeparator, DemucsConfig),
     }
 
-    @staticmethod
-    def _calculate_jaccard_similarity(set1: Set[str], set2: Set[str]) -> float:
-        """Calculates Jaccard similarity between two sets of strings."""
-        if not set1 and not set2:  # Both empty
-            return 1.0
-        if not set1 or not set2:  # One empty
-            return 0.0
-
-        intersection_count = len(set1.intersection(set2))
-        union_count = len(set1.union(set2))
-
-        return intersection_count / union_count if union_count > 0 else 0.0
-
     @classmethod
     def create_separator(
         cls,
         separation_tool: SeparationTool,
-        detected_instruments: list[str] | None = None,
+        detected_instruments: list[InstrumentStem],  # Expects a list, can be empty
     ) -> AudioSeparator:
         """
         Creates and returns an instance of the appropriate audio separator.
@@ -291,68 +440,17 @@ class AudioSeparatorFactory:
 
         # Start with default config (which includes the default model_name from the Config class)
         separator_config = SeparatorConfigClass()
-        selected_model_name = separator_config.model_name  # Default model
+        current_default_model_name = separator_config.model_name
 
-        if detected_instruments and separation_tool in AVAILABLE_MODELS:
-            detected_set = set(detected_instruments)
-            logger.info(
-                f"Attempting to select best model for {separation_tool.value} based on detected instruments: {detected_set}"
-            )
-
-            best_model_candidate: ModelDefinition | None = None
-            highest_similarity_score: float = -1.0
-            best_coverage_of_detected: int = -1
-
-            tool_models = AVAILABLE_MODELS[separation_tool]
-
-            for model_def in tool_models:
-                similarity = cls._calculate_jaccard_similarity(
-                    detected_set, model_def.supported_stems
-                )
-                # How many of the *detected* instruments are covered by this model's stems
-                coverage_of_detected = len(
-                    detected_set.intersection(model_def.supported_stems)
-                )
-
-                logger.debug(
-                    f"Evaluating model: {model_def.name}, Stems: {model_def.supported_stems}, "
-                    f"Jaccard: {similarity:.4f}, Detected Coverage: {coverage_of_detected}"
-                )
-
-                if similarity > highest_similarity_score:
-                    highest_similarity_score = similarity
-                    best_model_candidate = model_def
-                    best_coverage_of_detected = coverage_of_detected
-                elif similarity == highest_similarity_score:
-                    # Tie-breaking:
-                    # 1. Prefer model that covers more of the *detected* instruments.
-                    if coverage_of_detected > best_coverage_of_detected:
-                        best_model_candidate = model_def
-                        best_coverage_of_detected = coverage_of_detected
-                    # 2. If coverage is also equal, prefer model with more total stems (more granular)
-                    elif (
-                        coverage_of_detected == best_coverage_of_detected
-                        and best_model_candidate
-                        and len(model_def.supported_stems)
-                        > len(best_model_candidate.supported_stems)
-                    ):
-                        best_model_candidate = model_def
-                    # 3. If still tied, the one listed earlier in AVAILABLE_MODELS wins (implicit priority)
-
-            # Ensure there's a meaningful match before overriding the default
-            if (
-                best_model_candidate and highest_similarity_score > 0.0
-            ):  # Threshold can be adjusted
-                selected_model_name = best_model_candidate.name
-                logger.info(
-                    f"Selected model based on instruments: {selected_model_name} (Jaccard Similarity: {highest_similarity_score:.4f}, Coverage: {best_coverage_of_detected})"
-                )
-            else:
-                logger.info(
-                    f"No sufficiently similar model found or no overlap with detected instruments. Using default model: {selected_model_name}"
-                )
+        # Use ModelSelector to determine the best model name
+        selector = ModelSelector()
+        selected_model_name = selector.get_model_name_for_tool(
+            separation_tool=separation_tool,
+            detected_instruments_list=detected_instruments,
+            all_available_models=AVAILABLE_MODELS,
+            default_model_name=current_default_model_name,
+        )
 
         # Update config with the selected model name if it changed from the default
         separator_config.model_name = selected_model_name
-
         return SeparatorClass(config=separator_config)
