@@ -70,6 +70,12 @@ def _parse_command_line_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """
+    Main function to separate audio sources using Spleeter or Demucs.
+
+    Returns:
+        int: The exit code of the program.
+    """
     logging.basicConfig(
         level=logging.INFO,
         # format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -89,15 +95,16 @@ def main() -> int:
             )
         else:
             try:
-                # In a real application, you might have a factory or configuration for choosing the classifier
+                # In a real application, you might have a factory
+                # or configuration for choosing the classifier
                 instrument_classifier: InstrumentClassifier = (
                     PlaceholderInstrumentClassifier()
                 )
                 detected_instruments_list = instrument_classifier.classify_instruments(
                     args.input_audio_file
                 )
-            except Exception as e:
-                logger.error(f"Instrument classification failed: {e}", exc_info=True)
+            except (FileNotFoundError, OSError, RuntimeError) as e:
+                logger.error("Instrument classification failed: %s", e, exc_info=True)
                 logger.warning("Proceeding without instrument-based model selection.")
 
     try:
@@ -111,7 +118,7 @@ def main() -> int:
         return os.EX_OK
 
     except ValueError as e:
-        logger.critical(f"Terminating due to error: {e}")
+        logger.critical("Terminating due to error: %s", e)
         return os.EX_SOFTWARE
 
 
