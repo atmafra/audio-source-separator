@@ -9,13 +9,13 @@ import os
 import sys
 from audio_source_separator.audio_separators import (
     AudioSeparator,
-    SeparationTool,
     AudioSeparatorFactory,
+    SeparationTool,
 )
 from audio_source_separator.common_types import InstrumentStem
 from audio_source_separator.instrument_classifier import (
-    PlaceholderInstrumentClassifier,
     InstrumentClassifier,
+    PlaceholderInstrumentClassifier,
 )
 
 
@@ -72,7 +72,7 @@ def _parse_command_line_args() -> argparse.Namespace:
 def main() -> int:
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        # format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
     args = _parse_command_line_args()
