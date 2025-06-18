@@ -28,7 +28,6 @@ class InstrumentClassifier(ABC):
         Returns:
             A list of detected `InstrumentStem` enum members.
         """
-        pass
 
 
 class PlaceholderInstrumentClassifier(InstrumentClassifier):
@@ -41,7 +40,8 @@ class PlaceholderInstrumentClassifier(InstrumentClassifier):
 
     def classify_instruments(self, audio_path: str) -> List[InstrumentStem]:
         logger.info(
-            f"PlaceholderInstrumentClassifier: Using default instruments for {audio_path}."
+            "PlaceholderInstrumentClassifier: Using default instruments for %s.",
+            audio_path,
         )
         # Default assumption for many pop/rock songs, or a common set for Spleeter 4stems/Demucs
         detected_instrument_stems: List[InstrumentStem] = [
@@ -51,7 +51,8 @@ class PlaceholderInstrumentClassifier(InstrumentClassifier):
             InstrumentStem.OTHER,
         ]
         logger.info(
-            f"Placeholder: Detected instruments: {[stem.value for stem in detected_instrument_stems]}"
+            "Placeholder: Detected instruments: %s",
+            [stem.value for stem in detected_instrument_stems],
         )
         return detected_instrument_stems
 
@@ -65,7 +66,8 @@ class MockInstrumentClassifier(InstrumentClassifier):
 
     def classify_instruments(self, audio_path: str) -> List[InstrumentStem]:
         logger.info(
-            f"MockInstrumentClassifier: Simulating instrument detection for {audio_path}..."
+            "MockInstrumentClassifier: Simulating instrument detection for %s...",
+            audio_path,
         )
         detected_stems: List[InstrumentStem] = []
 
@@ -108,6 +110,7 @@ class MockInstrumentClassifier(InstrumentClassifier):
         # and convert to list
         final_detected_stems = list(set(detected_stems))
         logger.info(
-            f"MockInstrumentClassifier: Detected instruments: {[stem.value for stem in final_detected_stems]}"
+            "MockInstrumentClassifier: Detected instruments: %s",
+            [stem.value for stem in final_detected_stems],
         )
         return final_detected_stems
