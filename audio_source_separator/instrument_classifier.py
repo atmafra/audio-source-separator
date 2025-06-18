@@ -98,7 +98,8 @@ class MockInstrumentClassifier(InstrumentClassifier):
             ]
 
             if remaining_stems:
-                # Decide how many additional instruments to pick, up to 3 more or all remaining if fewer than 3
+                # Decide how many additional instruments to pick,
+                # up to 3 more or all remaining if fewer than 3
                 num_additional_to_sample = random.randint(
                     1, min(3, len(remaining_stems))
                 )
