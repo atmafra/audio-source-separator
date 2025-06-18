@@ -178,3 +178,6 @@ output_stems/
 
 # Ignore pretrained-model files
 pretrained_models/
+
+# Visual Studio Code settings
+.vscode/
