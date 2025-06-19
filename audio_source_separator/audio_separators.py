@@ -5,11 +5,11 @@ for Spleeter and Demucs, along with their Pydantic configuration models.
 
 import os
 import logging
+from typing import List, Set, Dict
 from abc import ABC, abstractmethod
 from pathlib import Path
 from enum import StrEnum  # type: ignore
 from pydantic import BaseModel
-from typing import List, Set, Dict
 import yaml
 import torch
 from demucs.api import Separator as DemucsSeparator
@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 class SeparationTool(StrEnum):
     """Enumeration of available audio separation tools."""
 
-    SPLEETER = "spleeter"
     DEMUCS = "demucs"
 
 
@@ -31,12 +30,6 @@ class AudioSeparatorConfig(BaseModel):
     """Base configuration for any audio separator."""
 
     model_name: str
-
-
-class SpleeterConfig(AudioSeparatorConfig):
-    """Configuration specific to Spleeter."""
-
-    model_name: str = "spleeter:5stems"
 
 
 class DemucsConfig(AudioSeparatorConfig):
@@ -65,7 +58,7 @@ class AudioSeparator(ABC):
             True if the file exists, False otherwise.
         """
         if not os.path.exists(input_audio_path):
-            logger.error(f"Input audio file not found at {input_audio_path}")
+            logger.error("Input audio file not found at %s", input_audio_path)
             return False
         return True
 
@@ -75,38 +68,6 @@ class AudioSeparator(ABC):
         Performs the audio separation.
         Subclasses must implement this method, interpreting output_audio_folder appropriately.
         """
-        pass
-
-
-# --- Spleeter Specific Implementation ---
-class SpleeterAudioSeparator(AudioSeparator):
-    """Audio separator using Spleeter."""
-
-    def __init__(self, config: SpleeterConfig):
-        super().__init__(config)
-
-    def separate(self, input_audio_path: str, output_audio_folder: str) -> None:
-        """Separates an audio file using Spleeter."""
-        logger.info(f"--- Using Spleeter (model: {self.config.model_name}) ---")
-
-        if not self._check_input_file(input_audio_path):
-            return
-
-        if not os.path.exists(output_audio_folder):
-            os.makedirs(output_audio_folder)
-            logger.info(f"Created output directory: {output_audio_folder}")
-
-        from spleeter.separator import Separator as SpleeterLibSeparator
-
-        spleeter_instance = SpleeterLibSeparator(self.config.model_name)
-        logger.info(
-            f"Processing {input_audio_path} with Spleeter model {self.config.model_name}..."
-        )
-
-        spleeter_instance.separate_to_file(input_audio_path, output_audio_folder)
-        logger.info(
-            f"Spleeter separation complete. Output files are in {output_audio_folder}"
-        )
 
 
 # --- Demucs Specific Implementation ---
@@ -121,20 +82,22 @@ class DemucsAudioSeparator(AudioSeparator):
         Separates an audio file using the Demucs library.
         Demucs typically separates into: drums, bass, other, vocals.
         """
-        logger.info(f"--- Using Demucs library (model: {self.config.model_name}) ---")
+        logger.info("--- Using Demucs library (model: %s) ---", self.config.model_name)
         if not self._check_input_file(input_audio_path):
             return
 
         try:
             device = "cuda" if torch.cuda.is_available() else "cpu"
-            logger.info(f"Demucs will use device: {device}")
+            logger.info("Demucs will use device: %s", device)
 
             demucs_instance = DemucsSeparator(
                 model=self.config.model_name, device=device
             )
 
             logger.info(
-                f"Processing {input_audio_path} with Demucs model {self.config.model_name}..."
+                "Processing %s with Demucs model %s...",
+                input_audio_path,
+                self.config.model_name,
             )
             _, separated_sources = demucs_instance.separate_audio_file(
                 Path(input_audio_path)
@@ -148,7 +111,7 @@ class DemucsAudioSeparator(AudioSeparator):
 
             if not os.path.exists(output_path_for_song):
                 os.makedirs(output_path_for_song)
-                logger.info(f"Created output directory: {output_path_for_song}")
+                logger.info("Created output directory: %s", output_path_for_song)
 
             for stem_name, stem_tensor in separated_sources.items():
                 stem_output_path = os.path.join(
@@ -157,14 +120,15 @@ class DemucsAudioSeparator(AudioSeparator):
                 save_audio(
                     stem_tensor, stem_output_path, samplerate=demucs_instance.samplerate
                 )
-                logger.info(f"Saved {stem_name} to {stem_output_path}")
+                logger.info("Saved %s to %s", stem_name, stem_output_path)
 
             logger.info(
-                f"Demucs separation complete. Output files are in {output_path_for_song}"
+                "Demucs separation complete. Output files are in %s",
+                output_path_for_song,
             )
 
         except (RuntimeError, ValueError, IOError) as e:
-            logger.error(f"Error during Demucs library processing: {e}", exc_info=True)
+            logger.error("Error during Demucs library processing: %s", e, exc_info=True)
 
 
 class ModelDefinition(BaseModel):
@@ -183,8 +147,9 @@ def _load_models_config(
     available_models: Dict[SeparationTool, List[ModelDefinition]] = {}
     if not config_path.exists():
         logger.warning(
-            f"Models configuration file not found at {config_path}. "
-            "Instrument-based model selection will be limited."
+            "Models configuration file not found at %s. "
+            "Instrument-based model selection will be limited.",
+            config_path,
         )
         return available_models
 
@@ -194,7 +159,8 @@ def _load_models_config(
 
         if not isinstance(config_data, dict):
             logger.error(
-                f"Invalid format in {config_path}. Expected a dictionary at the root."
+                "Invalid format in %s. Expected a dictionary at the root.",
+                config_path,
             )
             return available_models
 
@@ -219,8 +185,12 @@ def _load_models_config(
                                         )
                                     except ValueError:
                                         logger.warning(
-                                            f"Unknown stem '{stem_str}' in model '{model_entry['name']}' "
-                                            f"for tool {tool_name} in {config_path}. Skipping this stem."
+                                            "Unknown stem '%s' in model '%s' "
+                                            "for tool %s in %s. Skipping this stem.",
+                                            stem_str,
+                                            model_entry["name"],
+                                            tool_name,
+                                            config_path,
                                         )
                             model_defs.append(
                                 ModelDefinition(
@@ -233,20 +203,25 @@ def _load_models_config(
                             )
                         else:
                             logger.warning(
-                                f"Skipping invalid model entry for tool {tool_name} in {config_path}: {model_entry}"
+                                "Skipping invalid model entry for tool %s in %s: %s",
+                                tool_name,
+                                config_path,
+                                model_entry,
                             )
                 available_models[tool_enum] = model_defs
 
             except ValueError:
                 logger.warning(
-                    f"Unknown separation tool '{tool_name}' in {config_path}. Skipping."
+                    "Unknown separation tool '%s' in %s. Skipping.",
+                    tool_name,
+                    config_path,
                 )
 
     except yaml.YAMLError as e:
-        logger.error(f"Error parsing YAML file {config_path}: {e}", exc_info=True)
+        logger.error("Error parsing YAML file %s: %s", config_path, e, exc_info=True)
 
     except IOError as e:
-        logger.error(f"Error reading file {config_path}: {e}", exc_info=True)
+        logger.error("Error reading file %s: %s", config_path, e, exc_info=True)
 
     return available_models
 
@@ -311,8 +286,12 @@ class ModelSelector:
             )
 
             logger.debug(
-                f"Evaluating model: {model_def.name}, Stems: {[s.value for s in model_def.supported_stems]}, "
-                f"Jaccard: {similarity:.4f}, Detected Coverage: {coverage_of_detected}"
+                "Evaluating model: %s, Stems: %s, "
+                "Jaccard: %s, Detected Coverage: %s",
+                model_def.name,
+                [s.value for s in model_def.supported_stems],
+                similarity,
+                coverage_of_detected,
             )
 
             if similarity > highest_similarity_score:
@@ -335,15 +314,19 @@ class ModelSelector:
 
         if best_model_candidate and highest_similarity_score > 0.0:
             logger.info(
-                f"Selected model based on instruments: {best_model_candidate.name} "
-                f"(Jaccard Similarity: {highest_similarity_score:.4f}, Coverage: {best_coverage_of_detected})"
+                "Selected model based on instruments: %s "
+                "(Jaccard Similarity: %s, Coverage: %s)",
+                best_model_candidate.name,
+                highest_similarity_score,
+                best_coverage_of_detected,
             )
             return best_model_candidate.name
 
         else:
             logger.info(
-                f"No sufficiently similar model found or no overlap with detected instruments. "
-                f"Using default model: {default_model_name}"
+                "No sufficiently similar model found or no overlap with detected instruments. "
+                "Using default model: %s",
+                default_model_name,
             )
             return default_model_name
 
@@ -408,7 +391,6 @@ class AudioSeparatorFactory:
     """
 
     _registry = {
-        SeparationTool.SPLEETER: (SpleeterAudioSeparator, SpleeterConfig),
         SeparationTool.DEMUCS: (DemucsAudioSeparator, DemucsConfig),
     }
 
@@ -416,7 +398,7 @@ class AudioSeparatorFactory:
     def create_separator(
         cls,
         separation_tool: SeparationTool,
-        detected_instruments: list[InstrumentStem],  # Expects a list, can be empty
+        detected_instruments: list[InstrumentStem],
     ) -> AudioSeparator:
         """
         Creates and returns an instance of the appropriate audio separator.
@@ -436,10 +418,10 @@ class AudioSeparatorFactory:
             logger.error(err_msg)
             raise ValueError(err_msg)
 
-        SeparatorClass, SeparatorConfigClass = cls._registry[separation_tool]
+        separator_class, separator_config_class = cls._registry[separation_tool]
 
         # Start with default config (which includes the default model_name from the Config class)
-        separator_config = SeparatorConfigClass()
+        separator_config = separator_config_class()
         current_default_model_name = separator_config.model_name
 
         # Use ModelSelector to determine the best model name
@@ -453,4 +435,4 @@ class AudioSeparatorFactory:
 
         # Update config with the selected model name if it changed from the default
         separator_config.model_name = selected_model_name
-        return SeparatorClass(config=separator_config)
+        return separator_class(config=separator_config)

@@ -1,25 +1,3 @@
-spleeter:
-  - name: "spleeter:2stems"
-    description: "Performs vocals + accompaniment separation"
-    supported_stems:
-      - "vocals"
-      - "accompaniment"
-  - name: "spleeter:4stems"
-    description: "Performs vocals + drums + bass + other separation"
-    supported_stems:
-      - "vocals"
-      - "drums"
-      - "bass"
-      - "other"
-  - name: "spleeter:5stems"
-    description: "Performs vocals + piano + drums + bass + other separation"
-    supported_stems:
-      - "vocals"
-      - "drums"
-      - "bass"
-      - "piano"
-      - "other"
-
 demucs:
   - name: "htdemucs_ft"
     description: "Fine-tuned version of htdemucs, separation will take 4 times more time but might be a bit better. Same training set as htdemucs"
