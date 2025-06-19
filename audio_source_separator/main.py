@@ -19,7 +19,6 @@ from audio_source_separator.instrument_classifier import (
 )
 
 
-# Get a logger instance for this module
 logger = logging.getLogger(__name__)
 
 
@@ -57,12 +56,15 @@ def _parse_command_line_args() -> argparse.Namespace:
         dest="output_folder",
         type=str,
         default=None,
-        help="Path to the output folder. If not provided, defaults to 'output_stems/<selected_tool_name>'.",
+        help=(
+            "Path to the output folder. "
+            "If not provided, defaults to 'output_stems/<selected_tool_name>'."
+        ),
     )
     parser.add_argument(
         "--detect-instruments",
         action="store_true",
-        help="Enable instrument detection to attempt to select a more appropriate model (primarily for Spleeter).",
+        help="Enable instrument detection to attempt to select a more appropriate model.",
     )
 
     args = parser.parse_args()
